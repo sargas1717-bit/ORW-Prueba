@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WRO Vision Pro - Future Engineers</title>
+    <style>
+        :root {
+            --wro-red: #ee2737;
+            --wro-green: #44d62c;
+            --wro-magenta: #ff00ff;
+            --wro-orange: #ff6600;
+            --wro-blue: #0033ff;
+            --wro-black: #64748b;
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: var(--bg-dark);
+            color: #f8fafc;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 360px;
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-right: 2px solid #334155;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            color: #38bdf8;
+            font-family: 'Segoe UI', sans-serif;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .calib-card {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 5px solid gray;
+        }
+
+        .calib-card.inspector { border-color: #fcd34d; background: #1e293b; border: 1px solid #fcd34d; border-left: 5px solid #fcd34d; }
+        .calib-card.red     { border-color: var(--wro-red); }
+        .calib-card.green   { border-color: var(--wro-green); }
+        .calib-card.magenta { border-color: var(--wro-magenta); }
+        .calib-card.orange  { border-color: var(--wro-orange); }
+        .calib-card.blue    { border-color: var(--wro-blue); }
+        .calib-card.black   { border-color: var(--wro-black); }
+        .calib-card.roi     { border-color: #10b981; }
+        .calib-card.danger  { border-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+        .calib-card.connection { border-color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
+
+        .calib-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .target-hue-info {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            background: rgba(0,0,0,0.3);
+            padding: 4px;
+            border-radius: 4px;
+        }
+        .target-hue-info span { font-weight: bold; color: #f8fafc; }
+
+        .btn-calib {
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 2px 8px;
+            font-size: 0.8rem;
+            transition: 0.2s;
+        }
+        .btn-calib:hover { background: #38bdf8; color: #0f172a; }
+
+        .slider-group { margin-bottom: 8px; }
+        .slider-group label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+        }
+        input[type="range"] { width: 100%; accent-color: #38bdf8; }
+
+        /* ===== CONEXIÓN USB — BARRA DE ESTADO ===== */
+        .usb-status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            margin-top: 8px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #64748b;
+            flex-shrink: 0;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        .status-dot.connected {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+        .status-dot.connecting {
+            background: #fbbf24;
+            box-shadow: 0 0 8px #fbbf24;
+            animation: pulseDot 0.8s ease-in-out infinite;
+        }
+        .status-dot.error {
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Indicador de tasa de envío */
+        #txRate {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-align: right;
+        }
+        #txRate.active { color: #10b981; }
+
+        /* ===== MAIN VIEW ===== */
+        .main-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            align-items: center;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .header h1 { margin: 0; color: #f8fafc; font-size: 1.5rem; }
+
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 0.9rem;
+        }
+        .btn-start { background: #10b981; color: white; }
+        .btn-stop  { background: #ef4444; color: white; }
+        .btn:hover { opacity: 0.8; }
+
+        .vision-container {
+            position: relative;
+            background: #000;
+            border: 4px solid #334155;
+            border-radius: 12px;
+            overflow: hidden;
+            width: 640px;
+            height: 480px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+            cursor: crosshair;
+        }
+
+        video, canvas, img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .mirror { transform: scaleX(-1); }
+
+        #calibBanner {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f59e0b;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-family: 'Segoe UI', sans-serif;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            pointer-events: none;
+            text-align: center;
+        }
+
+        /* ===== DASHBOARD ===== */
+        .dashboard {
+            display: flex;
+            width: 100%;
+            max-width: 800px;
+            background: var(--panel-bg);
+            margin-top: 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            padding: 20px;
+            gap: 20px;
+            flex-shrink: 0;
+        }
+
+        .steering-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 250px;
+            border-right: 1px solid #334155;
+            padding-right: 20px;
+        }
+
+        .wheel { font-size: 3.5rem; transition: transform 0.1s linear; }
+        .cmd-text {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-top: 10px;
+            text-align: center;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .data-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .data-item {
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .data-label  { color: #64748b; margin-bottom: 5px; display: block; font-weight: bold; }
+        .data-value  { color: #38bdf8; font-weight: bold; font-size: 1rem; display: block; }
+
+        /* ===== OVERLAYS ===== */
+        .fps-counter {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: #10b981;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        /* Notificaciones flotantes */
+        #toastContainer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            animation: slideIn 0.3s ease, fadeOut 0.4s ease 3.5s forwards;
+            max-width: 300px;
+        }
+        .toast.success { border-left: 4px solid #10b981; color: #6ee7b7; }
+        .toast.error   { border-left: 4px solid #ef4444; color: #fca5a5; }
+        .toast.info    { border-left: 4px solid #38bdf8; color: #7dd3fc; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to   { transform: translateX(0);    opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to   { opacity: 0; transform: translateX(30px); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toast container -->
+    <div id="toastContainer"></div>
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+        <h2>🛠️ Auto-Calibración</h2>
+
+        <!-- Panel de Conexión -->
+        <div class="calib-card connection">
+            <h3>📡 Enlace con el Robot</h3>
+            <p style="font-size:0.75rem;color:#93c5fd;margin:0 0 8px 0;">
+                Conecta el Arduino/ESP32 por USB a <b>115200 baudios</b>, o conéctate por WiFi mediante WebSocket.
+            </p>
+
+            <!-- USB -->
+            <button id="btnUsb" class="btn" style="width:100%;background:#3b82f6;color:white;padding:8px;margin-bottom:6px;">
+                🔌 Conectar USB (Serial)
+            </button>
+
+            <!-- Selector de baudios -->
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <label style="font-size:0.75rem;color:#94a3b8;white-space:nowrap;">Baudios:</label>
+                <select id="baudSelect" style="flex:1;background:#0f172a;border:1px solid #3b82f6;color:white;border-radius:4px;padding:4px;font-size:0.8rem;">
+                    <option value="9600">9600</option>
+                    <option value="19200">19200</option>
+                    <option value="38400">38400</option>
+                    <option value="57600">57600</option>
+                    <option value="115200" selected>115200</option>
+                    <option value="230400">230400</option>
+                </select>
+            </div>
+
+            <!-- WiFi -->
+            <details style="margin-top:4px;font-size:0.8rem;color:#94a3b8;">
+                <summary style="cursor:pointer;margin-bottom:5px;">🌐 Opciones WiFi (ESP32 / Pi)</summary>
+                <div>
+                    <input type="text" id="wsUrl" value="ws://192.168.4.1/ws"
+                        style="width:100%;padding:5px;background:#0f172a;border:1px solid #3b82f6;color:white;border-radius:4px;margin-bottom:5px;">
+                    <button id="btnConnect" class="btn" style="width:100%;background:#8b5cf6;color:white;padding:5px;">
+                        🌐 Conectar WiFi
+                    </button>
+                </div>
+            </details>
+
+            <!-- Barra de estado + dot -->
+            <div class="usb-status-bar">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="wsStatus" style="font-size:0.8rem;color:#94a3b8;flex:1;">Desconectado</span>
+                <span id="txRate">TX: 0 Hz</span>
+            </div>
+
+            <!-- Formato de telemetría configurable -->
+            <div style="margin-top:10px;">
+                <label style="font-size:0.75rem;color:#94a3b8;">Formato del mensaje:</label>
+                <select id="msgFormat" style="width:100%;background:#0f172a;border:1px solid #334155;color:white;border-radius:4px;padding:4px;font-size:0.8rem;margin-top:3px;">
+                    <option value="csv" selected>CSV simple: "1,45\n"</option>
+                    <option value="json">JSON: {"state":1,"angle":45}</option>
+                    <option value="custom">Prefijo "CMD:1,45\n"</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Inspector HSV -->
+        <div class="calib-card inspector">
+            <h3>🔍 Lente / Inspector HSV</h3>
+            <div style="display:flex;align-items:center;gap:15px;">
+                <div id="insColor" style="width:45px;height:45px;border-radius:50%;border:2px solid #94a3b8;background:#000;"></div>
+                <div style="font-size:0.8rem;color:#cbd5e1;line-height:1.4;">
+                    <div>Tono (H): <span id="insH" style="color:#38bdf8;font-weight:bold;">0</span>°</div>
+                    <div>Sat  (S): <span id="insS" style="color:#38bdf8;font-weight:bold;">0</span>%</div>
+                    <div>Luz  (V): <span id="insV" style="color:#38bdf8;font-weight:bold;">0</span></div>
+                </div>
+            </div>
+            <p style="font-size:0.7rem;color:#64748b;margin:8px 0 0 0;">Pasa el ratón sobre el video para ver los colores.</p>
+        </div>
+
+        <!-- Geometría -->
+        <div class="calib-card danger">
+            <h3>🚨 Geometría y Filtros</h3>
+            <p style="font-size:0.75rem;color:#fca5a5;margin:0 0 8px 0;">Define la zona crítica (aprox. 17 cm ancho).</p>
+            <div class="slider-group">
+                <label>Ancho del Corredor <span id="valCarW">40%</span></label>
+                <input type="range" id="carW" min="10" max="80" value="40">
+            </div>
+            <div class="slider-group">
+                <label>Línea de Frenado (Y) <span id="valDangerY">65%</span></label>
+                <input type="range" id="dangerY" min="30" max="90" value="65">
+            </div>
+            <div class="slider-group" style="border-top:1px solid #334155;padding-top:8px;margin-top:8px;">
+                <label style="color:#fcd34d;">Ignorar ruido &lt; <span id="valNoise">80</span> px</label>
+                <input type="range" id="noiseFilter" min="1" max="200" value="80">
+            </div>
+        </div>
+
+        <!-- ROI -->
+        <div class="calib-card roi">
+            <h3>✂️ Recorte de Paredes (Lectura)</h3>
+            <div class="slider-group">
+                <label>Ocultar Techo <span id="valRoiTop">45%</span></label>
+                <input type="range" id="roiTop" min="0" max="80" value="45">
+            </div>
+            <div class="slider-group">
+                <label>Ocultar Suelo <span id="valRoiBot">5%</span></label>
+                <input type="range" id="roiBot" min="0" max="80" value="5">
+            </div>
+            <div class="slider-group">
+                <label>Ocultar Lados <span id="valRoiSide">0%</span></label>
+                <input type="range" id="roiSide" min="0" max="40" value="0">
+            </div>
+        </div>
+
+        <!-- Colores -->
+        <div class="calib-card red">
+            <h3>🔴 Rojo <button class="btn-calib" data-target="red">🎯 Auto</button></h3>
+            <div class="target-hue-info">Color Búsqueda (Hue): <span id="tgtHred">355</span>°</div>
+            <div class="slider-group">
+                <label>Tolerancia Tono <span id="valHRed">15</span></label>
+                <input type="range" id="hRed" min="5" max="40" value="15">
+            </div>
+            <div class="slider-group">
+                <label>Sat. Mínima <span id="valSRed">50%</span></label>
+                <input type="range" id="sRed" min="10" max="100" value="50">
+            </div>
+        </div>
+
+        <div class="calib-card green">
+            <h3>🟢 Verde <button class="btn-calib" data-target="green">🎯 Auto</button></h3>
+            <div class="target-hue-info">Color Búsqueda (Hue): <span id="tgtHgreen">111</span>°</div>
+            <div class="slider-group">
+                <label>Tolerancia Tono <span id="valHGreen">20</span></label>
+                <input type="range" id="hGreen" min="10" max="50" value="20">
+            </div>
+            <div class="slider-group">
+                <label>Sat. Mínima <span id="valSGreen">40%</span></label>
+                <input type="range" id="sGreen" min="10" max="100" value="40">
+            </div>
+        </div>
+
+        <div class="calib-card magenta">
+            <h3>🟣 Rosa — Parking <button class="btn-calib" data-target="magenta">🎯 Auto</button></h3>
+            <div class="target-hue-info">Color Búsqueda (Hue): <span id="tgtHmagenta">300</span>°</div>
+            <div class="slider-group">
+                <label>Tolerancia Tono <span id="valHMag">25</span></label>
+                <input type="range" id="hMag" min="10" max="60" value="25">
+            </div>
+        </div>
+
+        <div class="calib-card orange">
+            <h3>🟠 L. Naranja <button class="btn-calib" data-target="orange">🎯 Auto</button></h3>
+            <div class="target-hue-info">Color Búsqueda (Hue): <span id="tgtHorange">15</span>°</div>
+            <div class="slider-group">
+                <label>Tolerancia Tono <span id="valHOrg">25</span></label>
+                <input type="range" id="hOrg" min="5" max="60" value="25">
+            </div>
+            <div class="slider-group">
+                <label>Sat. Mínima <span id="valSOrg">30%</span></label>
+                <input type="range" id="sOrg" min="5" max="100" value="30">
+            </div>
+        </div>
+
+        <div class="calib-card blue">
+            <h3>🔵 L. Azul <button class="btn-calib" data-target="blue">🎯 Auto</button></h3>
+            <div class="target-hue-info">Color Búsqueda (Hue): <span id="tgtHblue">228</span>°</div>
+            <div class="slider-group">
+                <label>Tolerancia Tono <span id="valHBlue">25</span></label>
+                <input type="range" id="hBlue" min="5" max="60" value="25">
+            </div>
+            <div class="slider-group">
+                <label>Sat. Mínima <span id="valSBlue">45%</span></label>
+                <input type="range" id="sBlue" min="5" max="100" value="45">
+            </div>
+        </div>
+
+        <div class="calib-card black">
+            <h3>⬛ Paredes (Oscuridad) <button class="btn-calib" data-target="black">🎯 Auto</button></h3>
+            <div class="slider-group">
+                <label>Brillo Límite (Value) <span id="valVBlk">60</span></label>
+                <input type="range" id="vBlk" min="10" max="150" value="60">
+            </div>
+        </div>
+
+        <div style="margin-top:auto;padding-bottom:20px;">
+            <label style="font-size:0.9rem;color:#cbd5e1;display:flex;align-items:center;gap:5px;">
+                <input type="checkbox" id="checkMirror"> Cámara Espejo
+            </label>
+        </div>
+    </aside>
+
+    <!-- ===== MAIN VIEW ===== -->
+    <main class="main-view">
+        <div class="header">
+            <h1>WRO Vision Pro — Tiempo Real</h1>
+            <div style="display:flex;gap:10px;align-items:center;">
+                <input type="file" id="mediaUpload" accept="image/*,video/*" style="display:none;">
+                <button class="btn" id="uploadBtn" style="background:#8b5cf6;color:white;">📁 Foto/Video</button>
+                <button class="btn btn-start" id="startBtn">▶ Cámara</button>
+                <button class="btn btn-stop"  id="stopBtn">⏹ Apagar</button>
+            </div>
+        </div>
+
+        <div class="vision-container" id="visionContainer">
+            <div id="calibBanner">Haga clic en el color...</div>
+            <div class="fps-counter" id="fpsDisplay">FPS: 0</div>
+            <img id="staticImg" style="display:none;">
+            <video id="webcam" autoplay playsinline muted loop></video>
+            <canvas id="output_canvas"></canvas>
+        </div>
+
+        <div class="dashboard">
+            <div class="steering-box">
+                <div class="wheel" id="steeringWheel">🕹️</div>
+                <div class="cmd-text" id="commandText" style="color:#64748b;">ESPERANDO</div>
+                <!-- Ángulo numérico -->
+                <div style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">
+                    Ángulo: <span id="angleDisplay" style="color:#38bdf8;font-weight:bold;">0°</span>
+                </div>
+            </div>
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="data-label">Amenaza Inminente (Crítica)</span>
+                    <span class="data-value" id="dataCritical" style="color:#ef4444;">Ninguna</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Amenaza Lejana (Advertencia)</span>
+                    <span class="data-value" id="dataWarning" style="color:#fbbf24;">Ninguna</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Estacionamiento</span>
+                    <span class="data-value" id="dataMag">0 px</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Líneas Guía (Carril)</span>
+                    <span class="data-value" id="dataLines">Buscando...</span>
+                </div>
+                <div class="data-item" style="grid-column:span 2;">
+                    <span class="data-label">Último paquete enviado al robot</span>
+                    <span class="data-value" id="dataLastPacket" style="color:#64748b;font-size:0.85rem;word-break:break-all;">—</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // ============================================================
+    //  REFERENCIAS UI
+    // ============================================================
+    const video         = document.getElementById('webcam');
+    const staticImg     = document.getElementById('staticImg');
+    const canvas        = document.getElementById('output_canvas');
+    const ctx           = canvas.getContext('2d');
+    const visionContainer = document.getElementById('visionContainer');
+    const calibBanner   = document.getElementById('calibBanner');
+
+    const offscreenCanvas = document.createElement('canvas');
+    const offscreenCtx    = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+
+    const steeringWheel = document.getElementById('steeringWheel');
+    const commandText   = document.getElementById('commandText');
+    const checkMirror   = document.getElementById('checkMirror');
+    const fpsDisplay    = document.getElementById('fpsDisplay');
+    const mediaUpload   = document.getElementById('mediaUpload');
+    const uploadBtn     = document.getElementById('uploadBtn');
+    const angleDisplay  = document.getElementById('angleDisplay');
+
+    const dataCritical  = document.getElementById('dataCritical');
+    const dataWarning   = document.getElementById('dataWarning');
+    const dataMag       = document.getElementById('dataMag');
+    const dataLines     = document.getElementById('dataLines');
+    const dataLastPacket= document.getElementById('dataLastPacket');
+
+    // Conexión
+    const wsUrlInput    = document.getElementById('wsUrl');
+    const btnConnect    = document.getElementById('btnConnect');
+    const btnUsb        = document.getElementById('btnUsb');
+    const wsStatus      = document.getElementById('wsStatus');
+    const statusDot     = document.getElementById('statusDot');
+    const txRateEl      = document.getElementById('txRate');
+    const baudSelect    = document.getElementById('baudSelect');
+    const msgFormat     = document.getElementById('msgFormat');
+    const toastContainer = document.getElementById('toastContainer');
+
+    // ============================================================
+    //  ESTADO GLOBAL
+    // ============================================================
+    let isRunning         = false;
+    let animationId;
+    let lastFrameTime     = performance.now();
+    let frameCount        = 0;
+    let calibratingTarget = null;
+
+    // Comunicación
+    let ws            = null;
+    let serialPort    = null;
+    let serialWriter  = null;
+
+    // Métricas TX
+    let txCount        = 0;
+    let txRateCounter  = 0;
+    let lastTxSecond   = performance.now();
+    let lastMessageTime = 0;
+    const TX_INTERVAL_MS = 50; // 20 Hz máx
+
+    // ============================================================
+    //  TOAST NOTIFICATIONS
+    // ============================================================
+    function showToast(msg, type = 'info') {
+        const t = document.createElement('div');
+        t.className = `toast ${type}`;
+        t.textContent = msg;
+        toastContainer.appendChild(t);
+        setTimeout(() => t.remove(), 4000);
+    }
+
+    // ============================================================
+    //  HELPER: set connection state UI
+    // ============================================================
+    function setConnectionState(state, text) {
+        // state: 'connected' | 'connecting' | 'disconnected' | 'error'
+        statusDot.className = 'status-dot';
+        if (state === 'connected')    { statusDot.classList.add('connected');   wsStatus.style.color = '#10b981'; }
+        else if (state === 'connecting') { statusDot.classList.add('connecting'); wsStatus.style.color = '#fbbf24'; }
+        else if (state === 'error')   { statusDot.classList.add('error');       wsStatus.style.color = '#ef4444'; }
+        else                          { wsStatus.style.color = '#94a3b8'; }
+        wsStatus.textContent = text;
+    }
+
+    // ============================================================
+    //  USB — WEB SERIAL API
+    // ============================================================
+    btnUsb.addEventListener('click', async () => {
+        // ── DESCONECTAR ──
+        if (serialPort) {
+            try {
+                if (serialWriter) { serialWriter.releaseLock(); serialWriter = null; }
+                await serialPort.close();
+            } catch(e) { /* ignorar si ya estaba cerrado */ }
+            serialPort = null;
+            setConnectionState('disconnected', 'USB Desconectado');
+            btnUsb.textContent = '🔌 Conectar USB (Serial)';
+            btnUsb.style.background = '#3b82f6';
+            showToast('USB desconectado', 'info');
+            return;
+        }
+
+        // ── Verificar soporte ──
+        if (!('serial' in navigator)) {
+            setConnectionState('error', '❌ Web Serial no soportado');
+            showToast('Usa Chrome o Edge para Web Serial.', 'error');
+            return;
+        }
+
+        setConnectionState('connecting', 'Esperando selección de puerto...');
+
+        try {
+            serialPort = await navigator.serial.requestPort();
+            const baud = parseInt(baudSelect.value);
+            await serialPort.open({ baudRate: baud });
+
+            // Pipeline de escritura de texto
+            const encoder = new TextEncoderStream();
+            encoder.readable.pipeTo(serialPort.writable).catch(() => {});
+            serialWriter = encoder.writable.getWriter();
+
+            setConnectionState('connected', `🟢 USB OK — ${baud} bps`);
+            btnUsb.textContent  = '🔴 Desconectar USB';
+            btnUsb.style.background = '#ef4444';
+            showToast(`USB conectado a ${baud} baudios`, 'success');
+
+            // Escuchar datos entrantes del microcontrolador (ACK / telemetría devuelta)
+            _startSerialReader();
+
+        } catch (e) {
+            serialPort = null;
+            if (e.name === 'NotFoundError') {
+                setConnectionState('disconnected', 'Selección cancelada');
+            } else if (e.name === 'SecurityError') {
+                setConnectionState('error', '❌ Bloqueado — abre el archivo local');
+                showToast('Abre el HTML localmente para usar USB.', 'error');
+            } else {
+                setConnectionState('error', `❌ ${e.message}`);
+                showToast(`Error USB: ${e.message}`, 'error');
+            }
+        }
+    });
+
+    // Lector de datos entrantes (ACK / telemetría del Arduino)
+    async function _startSerialReader() {
+        if (!serialPort || !serialPort.readable) return;
+        const decoder = new TextDecoderStream();
+        serialPort.readable.pipeTo(decoder.writable).catch(() => {});
+        const reader = decoder.readable.getReader();
+        let buffer = '';
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += value;
+                // Procesar líneas completas
+                let lines = buffer.split('\n');
+                buffer = lines.pop(); // último fragmento incompleto
+                for (let line of lines) {
+                    line = line.trim();
+                    if (line) console.log('[Arduino RX]', line);
+                    // Aquí puedes parsear telemetría de retorno si el Arduino responde
+                }
+            }
+        } catch(e) {
+            // Puerto cerrado normalmente
+        } finally {
+            reader.releaseLock();
+        }
+    }
+
+    // ============================================================
+    //  WEBSOCKET — WiFi
+    // ============================================================
+    btnConnect.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close(); return;
+        }
+        setConnectionState('connecting', 'Conectando WiFi...');
+        try {
+            ws = new WebSocket(wsUrlInput.value);
+            ws.onopen  = () => {
+                setConnectionState('connected', '🟢 WiFi Conectado');
+                btnConnect.textContent = '❌ Desconectar WiFi';
+                btnConnect.style.background = '#ef4444';
+                showToast('WiFi conectado', 'success');
+            };
+            ws.onclose = () => {
+                setConnectionState('disconnected', '🔴 WiFi Desconectado');
+                btnConnect.textContent = '🌐 Conectar WiFi';
+                btnConnect.style.background = '#8b5cf6';
+                ws = null;
+            };
+            ws.onerror = () => {
+                setConnectionState('error', '❌ Error WiFi');
+                showToast('No se pudo conectar por WiFi.', 'error');
+            };
+            ws.onmessage = (ev) => {
+                // Telemetría de retorno desde el robot (opcional)
+                console.log('[WS RX]', ev.data);
+            };
+        } catch(e) {
+            setConnectionState('error', 'URL inválida');
+        }
+    });
+
+    // ============================================================
+    //  TELEMETRÍA — ENVÍO UNIFICADO
+    // ============================================================
+    function buildPayload(stateCode, angle) {
+        const fmt = msgFormat.value;
+        if (fmt === 'json')   return JSON.stringify({ state: stateCode, angle: Math.round(angle) }) + '\n';
+        if (fmt === 'custom') return `CMD:${stateCode},${Math.round(angle)}\n`;
+        return `${stateCode},${Math.round(angle)}\n`;   // CSV (default)
+    }
+
+    async function sendTelemetryToRobot(stateCode, angle) {
+        const now = performance.now();
+        if (now - lastMessageTime < TX_INTERVAL_MS) return;
+        lastMessageTime = now;
+
+        const payload = buildPayload(stateCode, angle);
+        let sent = false;
+
+        if (serialWriter) {
+            try {
+                await serialWriter.write(payload);
+                sent = true;
+            } catch(e) {
+                console.error('[USB TX Error]', e);
+                setConnectionState('error', '❌ Error en envío USB');
+            }
+        }
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(payload);
+            sent = true;
+        }
+
+        if (sent) {
+            txRateCounter++;
+            dataLastPacket.textContent = payload.trim();
+            dataLastPacket.style.color = '#38bdf8';
+        }
+    }
+
+    // Actualizar contador TX/s
+    setInterval(() => {
+        const now = performance.now();
+        const elapsed = (now - lastTxSecond) / 1000;
+        const hz = Math.round(txRateCounter / elapsed);
+        txRateEl.textContent = `TX: ${hz} Hz`;
+        txRateEl.className   = txRateCounter > 0 ? 'active' : '';
+        txRateCounter = 0;
+        lastTxSecond  = now;
+    }, 1000);
+
+    // ============================================================
+    //  SLIDERS
+    // ============================================================
+    function bindSlider(id, valId, suffix = '') {
+        const slider = document.getElementById(id);
+        const label  = document.getElementById(valId);
+        slider.addEventListener('input', () => label.textContent = slider.value + suffix);
+        slider.addEventListener('change', () => {
+            if (staticImg.style.display === 'block' && isRunning) processStaticFrame();
+        });
+        return slider;
+    }
+
+    const s_carW    = bindSlider('carW',       'valCarW',    '%');
+    const s_dangerY = bindSlider('dangerY',    'valDangerY', '%');
+    const s_noise   = bindSlider('noiseFilter','valNoise',   'px');
+    const s_roiTop  = bindSlider('roiTop',     'valRoiTop',  '%');
+    const s_roiBot  = bindSlider('roiBot',     'valRoiBot',  '%');
+    const s_roiSide = bindSlider('roiSide',    'valRoiSide', '%');
+    const s_hRed    = bindSlider('hRed',       'valHRed');
+    const s_sRed    = bindSlider('sRed',       'valSRed',    '%');
+    const s_hGreen  = bindSlider('hGreen',     'valHGreen');
+    const s_sGreen  = bindSlider('sGreen',     'valSGreen',  '%');
+    const s_hMag    = bindSlider('hMag',       'valHMag');
+    const s_hOrg    = bindSlider('hOrg',       'valHOrg');
+    const s_sOrg    = bindSlider('sOrg',       'valSOrg',    '%');
+    const s_hBlue   = bindSlider('hBlue',      'valHBlue');
+    const s_sBlue   = bindSlider('sBlue',      'valSBlue',   '%');
+    const s_vBlk    = bindSlider('vBlk',       'valVBlk');
+
+    // ============================================================
+    //  TARGETS DE COLOR
+    // ============================================================
+    const TARGETS = {
+        red:     { hue: 355, hex: '#ef4444', label: 'Rojo'   },
+        green:   { hue: 111, hex: '#10b981', label: 'Verde'  },
+        magenta: { hue: 300, hex: '#d946ef', label: 'Park'   },
+        orange:  { hue: 15,  hex: '#ff6600', label: 'Naranja'},
+        blue:    { hue: 228, hex: '#3b82f6', label: 'Azul'   },
+        black:              { hex: '#fde047', label: 'Pared'  }
+    };
+
+    // ============================================================
+    //  INSPECTOR HSV
+    // ============================================================
+    function rgbToHsvObj(r, g, b) {
+        let max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min, v = max;
+        let s = max === 0 ? 0 : d/max, h = 0;
+        if (max !== min) {
+            if (max === r)      h = (g-b)/d + (g<b ? 6 : 0);
+            else if (max === g) h = (b-r)/d + 2;
+            else                h = (r-g)/d + 4;
+            h *= 60;
+        }
+        return { h: Math.round(h), s: Math.round(s*100), v: Math.round(v) };
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isRunning) return;
+        const rect = canvas.getBoundingClientRect();
+        let px = (e.clientX - rect.left) / rect.width  * offscreenCanvas.width;
+        let py = (e.clientY - rect.top)  / rect.height * offscreenCanvas.height;
+        if (checkMirror.checked) px = offscreenCanvas.width - px;
+        px = Math.max(0, Math.min(offscreenCanvas.width-1,  Math.floor(px)));
+        py = Math.max(0, Math.min(offscreenCanvas.height-1, Math.floor(py)));
+        const d = offscreenCtx.getImageData(px, py, 1, 1).data;
+        document.getElementById('insColor').style.backgroundColor = `rgb(${d[0]},${d[1]},${d[2]})`;
+        const hsv = rgbToHsvObj(d[0], d[1], d[2]);
+        document.getElementById('insH').textContent = hsv.h;
+        document.getElementById('insS').textContent = hsv.s;
+        document.getElementById('insV').textContent = hsv.v;
+    });
+
+    // ============================================================
+    //  AUTO-CALIBRACIÓN
+    // ============================================================
+    document.querySelectorAll('.btn-calib').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            calibratingTarget = e.target.getAttribute('data-target');
+            calibBanner.style.background = '#f59e0b';
+            calibBanner.style.display = 'block';
+            calibBanner.innerHTML = `Toca el <b>${TARGETS[calibratingTarget].label}</b> en el video...`;
+        });
+    });
+
+    canvas.addEventListener('click', (e) => {
+        if (!calibratingTarget) return;
+        const rect = canvas.getBoundingClientRect();
+        let cx = (e.clientX - rect.left) / rect.width  * offscreenCanvas.width;
+        let cy = (e.clientY - rect.top)  / rect.height * offscreenCanvas.height;
+        if (checkMirror.checked) cx = offscreenCanvas.width - cx;
+        cx = Math.floor(cx); cy = Math.floor(cy);
+        const d = offscreenCtx.getImageData(Math.max(0,cx), Math.max(0,cy), 1, 1).data;
+        const hsv = rgbToHsvObj(d[0], d[1], d[2]);
+
+        if (calibratingTarget === 'black') {
+            let nv = Math.min(150, hsv.v + 15);
+            s_vBlk.value = nv; s_vBlk.dispatchEvent(new Event('input'));
+            calibBanner.innerHTML = `✅ Pared seteada a Brillo < ${nv}`;
+        } else {
+            TARGETS[calibratingTarget].hue = hsv.h;
+            document.getElementById(`tgtH${calibratingTarget}`).textContent = hsv.h;
+            let ns = Math.max(5, hsv.s - 20);
+            if (calibratingTarget === 'red')    { s_sRed.value  = ns; s_sRed.dispatchEvent(new Event('input')); }
+            if (calibratingTarget === 'green')  { s_sGreen.value= ns; s_sGreen.dispatchEvent(new Event('input')); }
+            if (calibratingTarget === 'orange') { s_sOrg.value  = ns; s_sOrg.dispatchEvent(new Event('input')); }
+            if (calibratingTarget === 'blue')   { s_sBlue.value = ns; s_sBlue.dispatchEvent(new Event('input')); }
+            calibBanner.innerHTML = `✅ Hue → <b>${hsv.h}°</b>  (Sat > ${ns}%)`;
+        }
+        calibBanner.style.background = '#10b981';
+        setTimeout(() => { calibBanner.style.display = 'none'; }, 3000);
+        calibratingTarget = null;
+        if (staticImg.style.display === 'block' && isRunning) processStaticFrame();
+    });
+
+    // ============================================================
+    //  VISIÓN — CLUSTERING
+    // ============================================================
+    function getHueDistance(h1, h2) { let d = Math.abs(h1-h2); return Math.min(d, 360-d); }
+
+    function updateBlobsList(list, x, y, maxDist) {
+        let limit = Math.max(0, list.length - 10);
+        for (let i = list.length-1; i >= limit; i--) {
+            let b = list[i];
+            if (x >= b.minX-maxDist && x <= b.maxX+maxDist && y >= b.minY-maxDist && y <= b.maxY+maxDist) {
+                b.sumX+=x; b.sumY+=y; b.count++;
+                if (x<b.minX) b.minX=x; if (x>b.maxX) b.maxX=x;
+                if (y<b.minY) b.minY=y; if (y>b.maxY) b.maxY=y;
+                return;
+            }
+        }
+        list.push({ sumX:x, sumY:y, count:1, minX:x, maxX:x, minY:y, maxY:y });
+    }
+
+    function mergeBlobs(list, isLine) {
+        let merged = true, tol = isLine ? 5 : 20;
+        while (merged) {
+            merged = false;
+            outer: for (let i=0; i<list.length; i++) {
+                for (let j=i+1; j<list.length; j++) {
+                    let a=list[i], b=list[j];
+                    if (!(a.maxX+tol<b.minX || a.minX-tol>b.maxX || a.maxY+tol<b.minY || a.minY-tol>b.maxY)) {
+                        a.sumX+=b.sumX; a.sumY+=b.sumY; a.count+=b.count;
+                        a.minX=Math.min(a.minX,b.minX); a.maxX=Math.max(a.maxX,b.maxX);
+                        a.minY=Math.min(a.minY,b.minY); a.maxY=Math.max(a.maxY,b.maxY);
+                        list.splice(j,1); merged=true; break outer;
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    // ── Segmentación de pared: cuadrícula reducida (1 celda = WALL_SCALE×WALL_SCALE px) ──
+    const WALL_SCALE = 4;
+
+    function scanImage(imageData) {
+        const { data, width: w, height: h } = imageData;
+        // Blobs solo para obstáculos de color (NO pared)
+        let blobs = { red:[], green:[], magenta:[], orange:[], blue:[] };
+
+        // Cuadrícula para segmentación de pared
+        const gridW = Math.ceil(w / WALL_SCALE);
+        const gridH = Math.ceil(h / WALL_SCALE);
+        const wallGrid = new Uint16Array(gridW * gridH); // acumula conteo de px oscuros por celda
+
+        const tHR=+s_hRed.value,  mSR=+s_sRed.value/100;
+        const tHG=+s_hGreen.value,mSG=+s_sGreen.value/100;
+        const tHM=+s_hMag.value;
+        const tHO=+s_hOrg.value,  mSO=+s_sOrg.value/100;
+        const tHB=+s_hBlue.value, mSB=+s_sBlue.value/100;
+        const maxV=+s_vBlk.value;
+
+        const y0=Math.floor(h*(+s_roiTop.value/100)),  y1=Math.floor(h*(1-+s_roiBot.value/100));
+        const x0=Math.floor(w*(+s_roiSide.value/100)), x1=Math.floor(w*(1-+s_roiSide.value/100));
+
+        for (let y=y0; y<y1; y++) {
+            for (let x=x0; x<x1; x++) {
+                const i=(y*w+x)*4;
+                const r=data[i], g=data[i+1], b=data[i+2];
+                const mx=Math.max(r,g,b), mn=Math.min(r,g,b), v=mx;
+
+                // ── PARED → segmentación en cuadrícula ──
+                if (v < maxV && v > 5) {
+                    wallGrid[Math.floor(y/WALL_SCALE)*gridW + Math.floor(x/WALL_SCALE)]++;
+                    continue; // pared detectada, no es obstáculo de color
+                }
+
+                // ── COLORES → blobs como antes ──
+                if (v>=25 && !(v>240 && (mx-mn)<20)) {
+                    const d=mx-mn, s=mx===0?0:d/mx;
+                    let hh=0;
+                    if (mx!==mn) {
+                        if (mx===r) hh=(g-b)/d+(g<b?6:0);
+                        else if (mx===g) hh=(b-r)/d+2;
+                        else hh=(r-g)/d+4;
+                        hh*=60;
+                    }
+                    let key=null;
+                    if      (s>=mSR && getHueDistance(hh,TARGETS.red.hue)     <=tHR) key='red';
+                    else if (s>=mSG && getHueDistance(hh,TARGETS.green.hue)   <=tHG) key='green';
+                    else if (s>=0.50 && getHueDistance(hh,TARGETS.magenta.hue)<=tHM) key='magenta';
+                    else if (s>=mSO && getHueDistance(hh,TARGETS.orange.hue)  <=tHO) key='orange';
+                    else if (s>=mSB && getHueDistance(hh,TARGETS.blue.hue)    <=tHB) key='blue';
+                    if (key) updateBlobsList(blobs[key], x, y, (key==='orange'||key==='blue')?15:40);
+                }
+            }
+        }
+
+        // Umbralizar la cuadrícula: mínimo de px por celda para considerarla pared real
+        const wallThreshold = Math.max(2, Math.floor((WALL_SCALE * WALL_SCALE) * 0.2));
+        const wallMask = new Uint8Array(gridW * gridH);
+        for (let i=0; i<wallGrid.length; i++) wallMask[i] = wallGrid[i] >= wallThreshold ? 1 : 0;
+
+        return { blobs: finalizeBlobs(blobs), wallMask, gridW, gridH };
+    }
+
+    function finalizeBlobs(blobs) {
+        const minA = +s_noise.value;
+        const res = {};
+        // 'black' ya no existe en blobs → solo colores
+        for (let key in blobs) {
+            const isLine = key==='orange'||key==='blue';
+            const thr = isLine ? Math.max(1, minA/4) : minA;
+            let valid = mergeBlobs(blobs[key], isLine).filter(b => b.count > thr).map(b => ({
+                x: b.sumX/b.count, y: b.sumY/b.count, area: b.count,
+                box: { x:b.minX, y:b.minY, w:b.maxX-b.minX, h:b.maxY-b.minY }
+            }));
+            valid.sort((a,b) => (b.box.y+b.box.h)-(a.box.y+a.box.h));
+            res[key] = valid;
+        }
+        return res;
+    }
+
+    // ============================================================
+    //  HUD — RENDERIZADO
+    // ============================================================
+    function drawHUD({ blobs, wallMask, gridW, gridH }) {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+
+        const dY_pct = +s_dangerY.value/100, cW_pct = +s_carW.value/100;
+        const dY = canvas.height*dY_pct, dW = canvas.width*cW_pct;
+        const dX = (canvas.width-dW)/2;
+
+        // ── SEGMENTACIÓN DE PARED (celdas individuales, no BB) ──
+        // Se pinta ANTES de todo lo demás para que los obstáculos queden encima
+        if (wallMask && gridW > 0) {
+            const cellW = canvas.width  / gridW;
+            const cellH = canvas.height / gridH;
+            ctx.save();
+            for (let gy=0; gy<gridH; gy++) {
+                for (let gx=0; gx<gridW; gx++) {
+                    if (!wallMask[gy*gridW + gx]) continue;
+                    const px = gx * cellW, py = gy * cellH;
+                    // Relleno semi-transparente amarillo
+                    ctx.globalAlpha = 0.35;
+                    ctx.fillStyle   = '#fde047';
+                    ctx.fillRect(px, py, cellW, cellH);
+                    // Borde amarillo tenue para delinear la silueta
+                    ctx.globalAlpha = 0.6;
+                    ctx.strokeStyle = '#facc15';
+                    ctx.lineWidth   = 0.5;
+                    ctx.strokeRect(px, py, cellW, cellH);
+                }
+            }
+            ctx.restore();
+        }
+
+        // Zona crítica
+        ctx.globalAlpha=1;
+        ctx.strokeStyle='rgba(239,68,68,0.8)'; ctx.lineWidth=2; ctx.setLineDash([10,5]);
+        ctx.strokeRect(dX,dY,dW,canvas.height-dY);
+        ctx.fillStyle='rgba(239,68,68,0.15)'; ctx.fillRect(dX,dY,dW,canvas.height-dY);
+        ctx.fillStyle='#ef4444'; ctx.font='bold 12px Consolas';
+        ctx.fillText('ZONA CRÍTICA', dX+5, dY+15);
+        ctx.setLineDash([]);
+
+        // Máscaras ROI
+        const rT=canvas.height*(+s_roiTop.value/100),  rB=canvas.height*(1-+s_roiBot.value/100);
+        const rS=canvas.width*(+s_roiSide.value/100);
+        ctx.fillStyle='rgba(0,0,0,0.6)';
+        ctx.fillRect(0,0,canvas.width,rT);
+        ctx.fillRect(0,rB,canvas.width,canvas.height-rB);
+        ctx.fillRect(0,rT,rS,rB-rT);
+        ctx.fillRect(canvas.width-rS,rT,rS,rB-rT);
+
+        // Blobs de obstáculos de color (SIN 'black')
+        ['red','green','magenta'].forEach(key => {
+            blobs[key].forEach((b,i) => {
+                ctx.globalAlpha=0.25; ctx.fillStyle=TARGETS[key].hex;
+                ctx.fillRect(b.box.x,b.box.y,b.box.w,b.box.h);
+                ctx.globalAlpha=1; ctx.strokeStyle=TARGETS[key].hex; ctx.lineWidth=3;
+                ctx.strokeRect(b.box.x,b.box.y,b.box.w,b.box.h);
+                ctx.fillStyle=TARGETS[key].hex; ctx.font='bold 14px Consolas';
+                ctx.fillText(`#${i+1} ${TARGETS[key].label}`, b.box.x, b.box.y-8);
+            });
+        });
+
+        // Guías de carril
+        ['orange','blue'].forEach(key => {
+            blobs[key].forEach((b,i) => {
+                ctx.globalAlpha=1; ctx.fillStyle=TARGETS[key].hex;
+                ctx.beginPath(); ctx.arc(b.x,b.y,6,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+                if (i===0) {
+                    ctx.fillStyle=TARGETS[key].hex; ctx.font='bold 12px Consolas';
+                    ctx.fillText(`Guía ${TARGETS[key].label}`, b.x+10, b.y+5);
+                }
+            });
+        });
+    }
+
+    // ============================================================
+    //  LÓGICA WRO — TOMA DE DECISIONES
+    // ============================================================
+    function analyzeThreats(list, dX, dW, dY) {
+        let critical=null, warning=null;
+        for (let b of list) {
+            if (b.box.x < dX+dW && b.box.x+b.box.w > dX) {
+                if (b.box.y+b.box.h > dY) {
+                    if (!critical || b.box.y+b.box.h > critical.box.y+critical.box.h) critical=b;
+                } else {
+                    if (!warning  || b.box.y+b.box.h > warning.box.y+warning.box.h)   warning=b;
+                }
+            }
+        }
+        return { critical, warning };
+    }
+
+    // ── Análisis de amenaza de pared por zonas de segmentación ──
+    function analyzeWallZones(wallMask, gridW, gridH, dX, dW, dY) {
+        if (!wallMask) return { leftCount:0, rightCount:0, centerCritical:0, centerWarning:0 };
+        const scX = gridW / canvas.width;
+        const scY = gridH / canvas.height;
+
+        // Columnas de corredor en espacio de cuadrícula
+        const gLeft  = Math.floor(dX * scX);
+        const gRight = Math.ceil((dX + dW) * scX);
+        const gDangerY   = Math.floor(dY * scY);
+        const gWarningY  = Math.floor(dY * scY * 0.75); // zona de advertencia = 75% de la línea peligro
+
+        let leftCount=0, rightCount=0, centerCritical=0, centerWarning=0;
+
+        for (let gy=0; gy<gridH; gy++) {
+            for (let gx=0; gx<gridW; gx++) {
+                if (!wallMask[gy*gridW + gx]) continue;
+                if (gx < gLeft)       leftCount++;
+                else if (gx >= gRight) rightCount++;
+                else {
+                    // Dentro del corredor central
+                    if (gy >= gDangerY)  centerCritical++;
+                    else if (gy >= gWarningY) centerWarning++;
+                }
+            }
+        }
+        return { leftCount, rightCount, centerCritical, centerWarning };
+    }
+
+    function wroDriveLogic({ blobs, wallMask, gridW, gridH }) {
+        let cmd='AVANZANDO', color='#10b981', rot=0, stateCode=1;
+
+        const dY_pct=+s_dangerY.value/100, cW_pct=+s_carW.value/100;
+        const dY=canvas.height*dY_pct, dW=canvas.width*cW_pct, dX=(canvas.width-dW)/2;
+
+        const rD=analyzeThreats(blobs.red,     dX,dW,dY);
+        const gD=analyzeThreats(blobs.green,   dX,dW,dY);
+        const mD=analyzeThreats(blobs.magenta, dX,dW,dY);
+
+        // ── Análisis de pared por segmentación (no BB) ──
+        const wall = analyzeWallZones(wallMask, gridW, gridH, dX, dW, dY);
+        // Umbral: cuántas celdas de pared en el centro activan la alerta
+        const WALL_CRITICAL_THR = 6;  // ~24×24 px reales dentro del corredor y debajo de la línea
+        const WALL_WARNING_THR  = 4;
+        const wallCritical = wall.centerCritical >= WALL_CRITICAL_THR;
+        const wallWarning  = wall.centerWarning  >= WALL_WARNING_THR;
+
+        dataCritical.textContent='Ninguna'; dataCritical.style.color='#94a3b8';
+        dataWarning.textContent='Ninguna';  dataWarning.style.color='#94a3b8';
+        dataMag.textContent = mD.critical ? 'EN META (STOP)' : (mD.warning ? 'Acercándose...' : '0 px');
+
+        let lt=[];
+        if (blobs.orange.length>0) lt.push(`N: ${Math.round(blobs.orange[0].x)}`);
+        if (blobs.blue.length>0)   lt.push(`A: ${Math.round(blobs.blue[0].x)}`);
+        dataLines.textContent = lt.length>0 ? lt.join(' | ') : 'Buscando carril...';
+
+        // ── Prioridades ──
+        if (mD.critical) {
+            cmd='ESTACIONADO (FIN)'; color='#d946ef'; rot=0; stateCode=0;
+            dataCritical.textContent='META WRO'; dataCritical.style.color='#d946ef';
+        }
+        else if (rD.critical && (!gD.critical || rD.critical.box.y+rD.critical.box.h > gD.critical.box.y+gD.critical.box.h)) {
+            cmd='EVASIÓN (ROJO → DER)'; color='#ef4444'; rot=45; stateCode=2;
+            dataCritical.textContent='Rojo → Giro Derecha'; dataCritical.style.color='#ef4444';
+        }
+        else if (gD.critical) {
+            cmd='EVASIÓN (VERDE → IZQ)'; color='#10b981'; rot=-45; stateCode=2;
+            dataCritical.textContent='Verde → Giro Izquierda'; dataCritical.style.color='#10b981';
+        }
+        else if (wallCritical) {
+            // La pared invade el corredor central → girar lejos de ella
+            // Si hay más pared a la izquierda → giramos a la derecha y viceversa
+            const wallDir = wall.leftCount >= wall.rightCount ? 1 : -1; // 1=der, -1=izq
+            rot = wallDir * 45; stateCode=2;
+            cmd = wallDir > 0 ? '¡PARED! → Girando DER' : '¡PARED! → Girando IZQ';
+            color='#fbbf24';
+            dataCritical.textContent=`Pared centro (${wall.centerCritical} celdas)`;
+            dataCritical.style.color='#fbbf24';
+        }
+        else if (wallWarning) {
+            const wallDir = wall.leftCount >= wall.rightCount ? 1 : -1;
+            rot = wallDir * 20; stateCode=1;
+            cmd = '⚠️ Pared cercana — corrigiendo';
+            color='#fcd34d';
+            dataWarning.textContent=`Pared advertencia (${wall.centerWarning} celdas)`;
+            dataWarning.style.color='#fcd34d';
+        }
+        else if (rD.warning) {
+            cmd='PREP. EVASIÓN (ROJO → DER)'; color='#fca5a5'; rot=15; stateCode=1;
+            dataWarning.textContent='Rojo lejos → preparando'; dataWarning.style.color='#fca5a5';
+        }
+        else if (gD.warning) {
+            cmd='PREP. EVASIÓN (VERDE → IZQ)'; color='#6ee7b7'; rot=-15; stateCode=1;
+            dataWarning.textContent='Verde lejos → preparando'; dataWarning.style.color='#6ee7b7';
+        }
+        else {
+            const oB=blobs.orange[0], blB=blobs.blue[0];
+            if (oB && blB) {
+                const err=((oB.x+blB.x)/2)-(canvas.width/2);
+                if (Math.abs(err)>30) { cmd='CENTRADOR CARRIL'; color='#38bdf8'; rot=err>0?20:-20; }
+            } else if (oB) {
+                cmd='SIGUIENDO NARANJA'; color='#ffb703'; rot=oB.x<canvas.width/2?10:-10;
+            } else if (blB) {
+                cmd='SIGUIENDO AZUL'; color='#3b82f6'; rot=blB.x>canvas.width/2?10:-10;
+            }
+        }
+
+        const finalRot = checkMirror.checked ? -rot : rot;
+        commandText.textContent = cmd; commandText.style.color = color;
+        steeringWheel.style.transform = `rotate(${finalRot}deg)`;
+        angleDisplay.textContent = `${finalRot}°`;
+
+        sendTelemetryToRobot(stateCode, finalRot);
+    }
+
+    // ============================================================
+    //  CÁMARA / FUENTES
+    // ============================================================
+    async function initCamera() {
+        let stream;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { width:{ideal:640}, height:{ideal:480} } });
+        } catch(e) {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+        video.srcObject = stream;
+        return new Promise(resolve => {
+            video.onloadedmetadata = () => {
+                canvas.width = video.videoWidth;  canvas.height = video.videoHeight;
+                offscreenCanvas.width  = video.videoWidth;
+                offscreenCanvas.height = video.videoHeight;
+                video.play(); resolve();
+            };
+        });
+    }
+
+    function processStaticFrame() {
+        if (!isRunning || staticImg.style.display !== 'block') return;
+        canvas.width = offscreenCanvas.width  = staticImg.naturalWidth  || 640;
+        canvas.height= offscreenCanvas.height = staticImg.naturalHeight || 480;
+        offscreenCtx.drawImage(staticImg, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+        const fd = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+        const blobs = scanImage(fd); drawHUD(blobs); wroDriveLogic(blobs);
+    }
+
+    function loop(ts) {
+        if (!isRunning) return;
+        frameCount++;
+        if (ts - lastFrameTime >= 1000) {
+            fpsDisplay.textContent = `FPS: ${frameCount}`;
+            frameCount=0; lastFrameTime=ts;
+        }
+
+        let ready = false;
+        if (video.style.display!=='none' && video.readyState>=2) {
+            offscreenCtx.drawImage(video, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+            ready = true;
+        } else if (staticImg.style.display==='block') {
+            offscreenCtx.drawImage(staticImg, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+            ready = true;
+        }
+
+        if (ready) {
+            const fd = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+            const blobs = scanImage(fd); drawHUD(blobs); wroDriveLogic(blobs);
+        }
+        animationId = requestAnimationFrame(loop);
+    }
+
+    // ============================================================
+    //  HELPERS
+    // ============================================================
+    const applyMirror = () => {
+        const cls = checkMirror.checked ? 'add' : 'remove';
+        video.classList[cls]('mirror');
+        canvas.classList[cls]('mirror');
+        staticImg.classList[cls]('mirror');
+    };
+    checkMirror.addEventListener('change', applyMirror);
+
+    function stopAllSources() {
+        isRunning = false;
+        cancelAnimationFrame(animationId);
+        if (video.srcObject) { video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
+        video.src=''; staticImg.src='';
+        video.style.display='block'; staticImg.style.display='none';
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        commandText.textContent='SISTEMA APAGADO'; commandText.style.color='#64748b';
+        steeringWheel.style.transform='rotate(0deg)';
+        angleDisplay.textContent='0°';
+        fpsDisplay.textContent='FPS: 0';
+        dataLastPacket.textContent='—'; dataLastPacket.style.color='#64748b';
+    }
+
+    // ============================================================
+    //  BOTONES PRINCIPALES
+    // ============================================================
+    document.getElementById('startBtn').addEventListener('click', async () => {
+        if (isRunning && video.srcObject) return;
+        stopAllSources();
+        try {
+            await initCamera();
+            applyMirror();
+            isRunning = true;
+            lastFrameTime = performance.now();
+            loop(performance.now());
+            commandText.textContent='INICIANDO...'; commandText.style.color='#fbbf24';
+        } catch(e) {
+            commandText.textContent='ERROR HARDWARE'; commandText.style.color='#ef4444';
+            showToast('No se pudo acceder a la cámara.', 'error');
+        }
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', stopAllSources);
+
+    uploadBtn.addEventListener('click', () => mediaUpload.click());
+
+    mediaUpload.addEventListener('change', (ev) => {
+        const file = ev.target.files[0]; if(!file) return;
+        stopAllSources();
+        const url = URL.createObjectURL(file);
+
+        if (file.type.startsWith('video/')) {
+            video.src=url; video.muted=true; video.loop=true;
+            video.onloadedmetadata = () => {
+                canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+                offscreenCanvas.width=video.videoWidth; offscreenCanvas.height=video.videoHeight;
+                applyMirror(); video.play();
+                isRunning=true; lastFrameTime=performance.now(); loop(performance.now());
+                commandText.textContent='ANALIZANDO VIDEO...'; commandText.style.color='#8b5cf6';
+            };
+        } else if (file.type.startsWith('image/')) {
+            video.style.display='none'; staticImg.style.display='block'; staticImg.src=url;
+            staticImg.onload = () => {
+                canvas.width=offscreenCanvas.width=staticImg.naturalWidth||640;
+                canvas.height=offscreenCanvas.height=staticImg.naturalHeight||480;
+                isRunning=true; applyMirror();
+                if (file.type==='image/gif') {
+                    lastFrameTime=performance.now(); loop(performance.now());
+                    commandText.textContent='ANALIZANDO GIF...'; commandText.style.color='#8b5cf6';
+                } else {
+                    processStaticFrame();
+                    commandText.textContent='IMAGEN ANALIZADA'; commandText.style.color='#38bdf8';
+                }
+            };
+        }
+        // Limpiar el input para que se pueda volver a seleccionar el mismo archivo
+        ev.target.value = '';
+    });
+
+    // ============================================================
+    //  INICIO — verificar soporte Web Serial
+    // ============================================================
+    if (!('serial' in navigator)) {
+        const warn = document.createElement('div');
+        warn.style.cssText = 'background:#7c2d12;border:1px solid #ef4444;color:#fca5a5;padding:8px;border-radius:6px;font-size:0.75rem;margin-bottom:8px;';
+        warn.innerHTML = '⚠️ Tu navegador no soporta Web Serial API. Usa <b>Chrome</b> o <b>Edge</b> para conectar por USB.';
+        document.getElementById('btnUsb').parentNode.insertBefore(warn, document.getElementById('btnUsb'));
+    }
+    </script>
+</body>
+</html>
